@@ -2,9 +2,6 @@
 
 Pipeline de streaming de baja latencia: Moto G06 (Android 15, cámara frontal HAL) → scrcpy → OBS Studio. Sincronización de audio vía Reaper + ASIO4ALL + ReaStream.
 
-Descripción corta (para el campo "Repository description" en GitHub):
-Streaming de baja latencia desde cámara frontal Android (Moto G06) a OBS usando scrcpy, con scripts y guía de configuración para sincronizar audio profesionalmente.
-
 ## Stack
 - Lenguajes: Batch (Windows .bat) y Shell (scripts de instalación)
 - Herramientas: scrcpy (Genymobile), adb, OBS Studio, Reaper, ASIO4ALL
