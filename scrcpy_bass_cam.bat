@@ -24,7 +24,6 @@ set "SCRCPY_EXE=%SCRCPY_DIR%\scrcpy.exe"
 set "ADB_EXE=%SCRCPY_DIR%\adb.exe"
 
 :: ADB_SERIAL: dejar vacío para autodetección. Si tienes >1 device, definir manualmente.
-set "ADB_SERIAL="
 
 :: Camara:
 set "CAMERA_ID=1"
@@ -144,20 +143,32 @@ if not defined TARGET_LINE (
   goto :adb_retry_wait
 )
 
+if defined TARGET_LINE (
+if defined TARGET_LINE (
 echo !TARGET_LINE! | findstr /C:"unauthorized" >nul
 if not errorlevel 1 (
+  )
+  )
   call :log "[AVISO] Dispositivo UNAUTHORIZED. Acepta depuracion USB."
   goto :adb_retry_wait
 )
 
+if defined TARGET_LINE (
+if defined TARGET_LINE (
 echo !TARGET_LINE! | findstr /C:"offline" >nul
 if not errorlevel 1 (
+  )
+  )
   call :log "[AVISO] Dispositivo OFFLINE. Reintentando..."
   goto :adb_retry_wait
 )
 
+if defined TARGET_LINE (
+if defined TARGET_LINE (
 echo !TARGET_LINE! | findstr /C:"device" >nul
 if not errorlevel 1 (
+  )
+  )
   call :log "[OK] Dispositivo listo: !TARGET_LINE!"
   set "DEVICE_READY=1"
   goto :adb_ready
