@@ -1,0 +1,20 @@
+# Binarios y libs de scrcpy (se descargan del release oficial, no se versionan)
+*.exe
+*.dll
+scrcpy-server
+scrcpy-server.zip
+scrcpy-noconsole.vbs
+scrcpy.png
+disconnected.png
+LICENSE.txt
+
+# Logs generados en cada corrida
+logs/
+*.log
+
+# Temporales de Windows/PowerShell
+*.tmp
+Thumbs.db
+desktop.ini
+Nuevo documento de texto.txt
+BASS_CAM.bat.bak
