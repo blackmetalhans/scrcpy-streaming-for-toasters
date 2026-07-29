@@ -1,21 +1,14 @@
 @echo off
-rem Ensure running under cmd.exe when invoked from MSYS/Git Bash
-if defined MSYSTEM (
-  if not defined __RUN_UNDER_CMD (
-    set "__RUN_UNDER_CMD=1"
-    echo [INFO] Re-executing under cmd.exe for Windows native behavior...
-    cmd.exe /C ""%~f0""
-    exit /b %errorlevel%
-  )
-)
 chcp 65001 >nul
 setlocal EnableExtensions EnableDelayedExpansion
 
 pushd "%~dp0" || exit /b 1
 
 :: ============================================================================
-:: scrcpy_bass_cam.bat - robustado para autodetección y ejecución desde Git Bash::
-:: Pipeline: Android phone (front camera) -> scrcpy -> OBS
+:: scrcpy_bass_cam.bat - robustado para autodetección y ejecución desde Windows cmd.exe
+:: Pipeline: Android phone (front camera) -> scrcpy -> OBS::
+:: NOTE: Run this script from native cmd.exe for correct behavior. If you run it
+:: from Git Bash / MSYS, please invoke it with:  cmd.exe /C scrcpy_bass_cam.bat
 :: ============================================================================
 
 :: --- 1. VARIABLES DE CONFIGURACION ---
@@ -23,7 +16,9 @@ set "SCRCPY_DIR=%CD%"
 set "SCRCPY_EXE=%SCRCPY_DIR%\scrcpy.exe"
 set "ADB_EXE=%SCRCPY_DIR%\adb.exe"
 
-:: ADB_SERIAL: dejar vacío para autodetección. Si tienes >1 device, definir manualmente.
+:: ADB_SERIAL: leave empty for autodetection; set manually if you have multiple devices.
+:: Do NOT overwrite an externally provided ADB_SERIAL environment variable.
+if not defined ADB_SERIAL set "ADB_SERIAL="
 
 :: Camara:
 set "CAMERA_ID=1"
@@ -69,17 +64,23 @@ if not exist "%ADB_EXE%" (
   )
 )
 
-:: --- Autodetección de ADB_SERIAL si está vacío ---
+:: --- Intentar autodetectar dispositivo ADB si ADB_SERIAL vacío ---
 if "%ADB_SERIAL%"=="" (
-  set "DETECTED_SERIAL="
-  for /f "usebackq tokens=1,2" %%A in (`%ADB_EXE% devices ^| findstr /R /C:"device$"`) do (
-    if not defined DETECTED_SERIAL set "DETECTED_SERIAL=%%A"
+  set "DEVICE_COUNT=0"
+  set "FIRST_SERIAL="
+  for /f "skip=1 tokens=1,2" %%a in ('%ADB_EXE% devices') do (
+    if "%%b"=="device" (
+      if not defined FIRST_SERIAL set "FIRST_SERIAL=%%a"
+      set /a DEVICE_COUNT+=1
+    )
   )
-  if defined DETECTED_SERIAL (
-    set "ADB_SERIAL=%DETECTED_SERIAL%"
-    call :log "[AUTODETECT] Usando ADB serial: %ADB_SERIAL%"
+  if "%DEVICE_COUNT%"=="1" (
+    set "ADB_SERIAL=%FIRST_SERIAL%"
+    call :log "[AUTODETECT] Se detectó 1 dispositivo ADB: %ADB_SERIAL%"
+  ) else if "%DEVICE_COUNT%"=="0" (
+    call :log "[AVISO] No se detectaron dispositivos ADB en la primera comprobación."
   ) else (
-    call :log "[AVISO] No se pudo autodetectar un dispositivo ADB unico. Define ADB_SERIAL manualmente si tienes multiples dispositivos."
+    call :log "[AVISO] Se detectaron %DEVICE_COUNT% dispositivos ADB. Dejar ADB_SERIAL vacío y especificarlo manualmente si es necesario."
   )
 )
 
@@ -132,10 +133,30 @@ set "ADB_OUT=%TEMP%\bass_cam_adb_out.txt"
 "%ADB_EXE%" devices > "%ADB_OUT%" 2>&1
 
 set "TARGET_LINE="
-for /f "usebackq delims=" %%L in ("%ADB_OUT%") do (
-  echo %%L | findstr /C:"%ADB_SERIAL%" >nul
-  if not errorlevel 1 set "TARGET_LINE=%%L"
+for /f "usebackq tokens=1,2" %%a in ('type "%ADB_OUT%"') do (
+  if "%%b"=="device" (
+    if defined ADB_SERIAL (
+      if "%%a"=="%ADB_SERIAL%" set "TARGET_LINE=%%a device"
+    ) else (
+      if not defined TARGET_LINE set "TARGET_LINE=%%a device"
+    )
+  )
+  if "%%b"=="unauthorized" (
+    if defined ADB_SERIAL (
+      if "%%a"=="%ADB_SERIAL%" set "TARGET_LINE=%%a unauthorized"
+    ) else (
+      if not defined TARGET_LINE set "TARGET_LINE=%%a unauthorized"
+    )
+  )
+  if "%%b"=="offline" (
+    if defined ADB_SERIAL (
+      if "%%a"=="%ADB_SERIAL%" set "TARGET_LINE=%%a offline"
+    ) else (
+      if not defined TARGET_LINE set "TARGET_LINE=%%a offline"
+    )
+  )
 )
+
 del "%ADB_OUT%" >nul 2>&1
 
 if not defined TARGET_LINE (
@@ -144,34 +165,24 @@ if not defined TARGET_LINE (
 )
 
 if defined TARGET_LINE (
-if defined TARGET_LINE (
-echo !TARGET_LINE! | findstr /C:"unauthorized" >nul
-if not errorlevel 1 (
+  echo !TARGET_LINE! | findstr /C:"unauthorized" >nul
+  if not errorlevel 1 (
+    call :log "[AVISO] Dispositivo UNAUTHORIZED. Acepta depuracion USB."
+    goto :adb_retry_wait
   )
-  )
-  call :log "[AVISO] Dispositivo UNAUTHORIZED. Acepta depuracion USB."
-  goto :adb_retry_wait
-)
 
-if defined TARGET_LINE (
-if defined TARGET_LINE (
-echo !TARGET_LINE! | findstr /C:"offline" >nul
-if not errorlevel 1 (
+  echo !TARGET_LINE! | findstr /C:"offline" >nul
+  if not errorlevel 1 (
+    call :log "[AVISO] Dispositivo OFFLINE. Reintentando..."
+    goto :adb_retry_wait
   )
-  )
-  call :log "[AVISO] Dispositivo OFFLINE. Reintentando..."
-  goto :adb_retry_wait
-)
 
-if defined TARGET_LINE (
-if defined TARGET_LINE (
-echo !TARGET_LINE! | findstr /C:"device" >nul
-if not errorlevel 1 (
+  echo !TARGET_LINE! | findstr /C:"device" >nul
+  if not errorlevel 1 (
+    call :log "[OK] Dispositivo listo: !TARGET_LINE!"
+    set "DEVICE_READY=1"
+    goto :adb_ready
   )
-  )
-  call :log "[OK] Dispositivo listo: !TARGET_LINE!"
-  set "DEVICE_READY=1"
-  goto :adb_ready
 )
 
 call :log "[AVISO] Estado no reconocido."
