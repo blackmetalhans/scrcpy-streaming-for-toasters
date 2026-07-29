@@ -7,22 +7,16 @@ pushd "%~dp0" || exit /b 1
 :: ============================================================================
 :: scrcpy_bass_cam.bat
 :: Pipeline: Moto G06 (Android 15, camara frontal via HAL) -> scrcpy -> OBS
-:: Renombrado desde BASS_CAM.bat. scrcpy v4.1.
-:: Fuentes: https://github.com/Genymobile/scrcpy/blob/master/doc/camera.md
 :: ============================================================================
-
 :: --- 1. VARIABLES DE CONFIGURACION ---
-
 set "SCRCPY_DIR=%CD%"
 set "SCRCPY_EXE=%SCRCPY_DIR%\scrcpy.exe"
 set "ADB_EXE=%SCRCPY_DIR%\adb.exe"
 
-:: Serial explicito: evita "Multiple ADB devices" cuando hay USB + TCP activos.
-:: Cambiar a 10.72.11.235:5555 para usar TCP/IP en vez de USB.
-set "ADB_SERIAL=ZY32M6CM7D"
+:: ADB_SERIAL: dejar vacío para autodetección. Si tienes >1 device, definir manualmente.
+set "ADB_SERIAL="
 
-:: Camara: camera-id=1 = frontal del Moto G06 (verificado con --list-cameras).
-:: 720x480 = tamaño soportado nativamente (verificado con --list-camera-sizes).
+:: Camara:
 set "CAMERA_ID=1"
 set "CAM_SIZE=720x480"
 set "CAM_FPS=30"
@@ -38,18 +32,40 @@ set "RETRY_WAIT_SECONDS=3"
 :: Afinidad CPU: cores 0-1 (mascara hex 3). No solapar con ASIO/Reaper ni OBS.
 set "CPU_AFFINITY_HEX=3"
 
-:: --- 2. LOGGING ---
+:: --- Autodetección de ADB_SERIAL si está vacío ---
+if "%ADB_SERIAL%"=="" (
+    if exist "%ADB_EXE%" (
+        set "ADB_CMD=%ADB_EXE%"
+    ) else (
+        where adb >nul 2>&1
+        if errorlevel 1 (
+            set "ADB_CMD=adb"
+        ) else (
+            set "ADB_CMD=adb"
+        )
+    )
+    set "DETECTED_SERIAL="
+    for /f "usebackq tokens=1,2" %%A in (`%ADB_CMD% devices ^| findstr /R /C:"device$"`) do (
+        if not defined DETECTED_SERIAL set "DETECTED_SERIAL=%%A"
+    )
+    if defined DETECTED_SERIAL (
+        set "ADB_SERIAL=%DETECTED_SERIAL%"
+        echo [AUTODETECT] Usando ADB serial: %ADB_SERIAL%
+    ) else (
+        echo [AVISO] No se pudo autodetectar un dispositivo ADB. Define ADB_SERIAL manualmente si tienes multiples dispositivos.
+    )
+)
 
+:: --- 2. LOGGING ---
 if not exist "logs" mkdir "logs" >nul 2>&1
 for /f "tokens=1-3 delims=/- " %%a in ("%date%") do set "D=%%c%%b%%a"
-for /f "tokens=1-3 delims=:." %%a in ("%time%") do set "T=%%a%%b%%c"
+for /f "tokens=1-3 delims=:. " %%a in ("%time%") do set "T=%%a%%b%%c"
 set "T=%T: =0%"
 set "LOG_FILE=%CD%\logs\bass_cam_%D%_%T%.log"
 
 call :log "==================== INICIO scrcpy_bass_cam.bat ===================="
 
 :: --- 3. VALIDACION DE BINARIOS ---
-
 if not exist "%SCRCPY_EXE%" (
     call :log "[ERROR] No se encontro scrcpy.exe en: %SCRCPY_EXE%"
     goto :fatal_error_2
@@ -70,13 +86,11 @@ if not exist "%ADB_EXE%" (
 )
 
 :: --- 4. LIMPIEZA DE PROCESOS ---
-
 taskkill /F /IM scrcpy.exe /T >nul 2>&1
 taskkill /F /IM adb.exe /T >nul 2>&1
 "%ADB_EXE%" kill-server >nul 2>&1
 
 :: --- 5. ADB + VALIDACION DE DISPOSITIVO (con reintentos) ---
-
 call :log "[ADB] Iniciando adb start-server..."
 "%ADB_EXE%" start-server >nul 2>&1
 if errorlevel 1 (
@@ -142,9 +156,6 @@ if "!DEVICE_READY!"=="0" (
 )
 
 :: --- 6. LANZAMIENTO DE SCRCPY ---
-:: start /affinity aplica la mascara nativamente (sin race condition).
-:: --stay-awake omitido: es incompatible con --no-control en scrcpy v4.1.
-
 call :log "[SCRCPY] Lanzando camara id=%CAMERA_ID% %CAM_SIZE% @ %CAM_FPS%fps, serial=%ADB_SERIAL%"
 
 start "" /affinity %CPU_AFFINITY_HEX% "%SCRCPY_EXE%" ^
@@ -174,7 +185,6 @@ call :log "Pulsa una tecla para detener el stream."
 pause >nul
 
 :: --- 7. LIMPIEZA AL SALIR ---
-
 call :log "[CLEANUP] Cerrando scrcpy..."
 taskkill /F /IM scrcpy.exe /T >nul 2>&1
 
@@ -190,7 +200,6 @@ popd
 exit /b 0
 
 :: ==================== SUBRUTINAS ====================
-
 :log
 set "MSG=%~1"
 set "TS=%date% %time%"

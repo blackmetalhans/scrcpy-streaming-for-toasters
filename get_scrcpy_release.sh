@@ -1,9 +1,5 @@
 #!/usr/bin/env bash
-set -e
-
-# get_scrcpy_release.sh
-# Downloads the latest scrcpy release asset (Windows .zip when available) and extracts to ./bin
-# Requires: curl, unzip or bsdtar, python3 (used for JSON parsing fallback)
+set -euo pipefail
 
 REPO_API="https://api.github.com/repos/Genymobile/scrcpy/releases/latest"
 OUTDIR="bin"
@@ -11,17 +7,18 @@ TMPZIP="/tmp/scrcpy_release.zip"
 
 mkdir -p "$OUTDIR"
 
-ASSET_URL=$(curl -s "$REPO_API" | python3 - <<'PY'
-import sys, json
+echo "Resolving latest scrcpy release asset..."
+ASSET_URL=""
+if command -v python3 >/dev/null 2>&1; then
+  ASSET_URL=$(curl -s "$REPO_API" | python3 - <<'PY'
+import sys,json
 r=json.load(sys.stdin)
 assets=r.get('assets',[])
-# prefer windows zip
 for a in assets:
     name=a.get('name','').lower()
     if 'win' in name and name.endswith('.zip'):
         print(a.get('browser_download_url'))
         sys.exit(0)
-# fallback: first zip
 for a in assets:
     if a.get('name','').endswith('.zip'):
         print(a.get('browser_download_url'))
@@ -29,13 +26,22 @@ for a in assets:
 print('')
 PY
 )
+elif command -v jq >/dev/null 2>&1; then
+  ASSET_URL=$(curl -s "$REPO_API" | jq -r '.assets[] | select(.name|test("(?i)win")) | select(.name|test("\\.zip$")) | .browser_download_url' | head -n1)
+  if [ -z "$ASSET_URL" ]; then
+    ASSET_URL=$(curl -s "$REPO_API" | jq -r '.assets[] | select(.name|test("\\.zip$")) | .browser_download_url' | head -n1)
+  fi
+else
+  echo "Warning: neither python3 nor jq found; attempting naive grep fallback."
+  ASSET_URL=$(curl -s "$REPO_API" | grep -o 'https://[^"]*\.zip' | head -n1)
+fi
 
 if [ -z "$ASSET_URL" ]; then
-  echo "No suitable asset found in scrcpy release. Open the releases page: https://github.com/Genymobile/scrcpy/releases"
+  echo "No suitable asset found. Visit https://github.com/Genymobile/scrcpy/releases"
   exit 2
 fi
 
-echo "Downloading $ASSET_URL..."
+echo "Downloading $ASSET_URL ..."
 curl -L -o "$TMPZIP" "$ASSET_URL"
 
 if command -v unzip >/dev/null 2>&1; then

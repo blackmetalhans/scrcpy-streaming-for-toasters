@@ -1,105 +1,86 @@
 # scrcpy-bass-cam
 
-Pipeline de streaming de baja latencia: Moto G06 (Android 15, cámara frontal HAL) → scrcpy → OBS Studio. Sincronización de audio vía Reaper + ASIO4ALL + ReaStream.
+Pipeline de streaming de baja latencia: Moto G06 (Android 15, cámara frontal HAL) → scrcpy → OBS Studio. Diseñado para músicos y creadores que necesitan transmitir cámara frontal y audio en tiempo real con la mínima latencia posible.
 
-## Stack
-- Lenguajes: Batch (Windows .bat) y Shell (scripts de instalación)
-- Herramientas: scrcpy (Genymobile), adb, OBS Studio, Reaper, ASIO4ALL
+**Descripción corta (campo de repositorio):** Streaming de baja latencia desde cámara frontal Android a OBS usando scrcpy — scripts y guía para sincronizar audio profesionalmente.
 
-## Qué hay aquí / Organización
+## ¿Para quién es esto?
+- Músicos/streamers que quieren usar la cámara frontal de su teléfono como cámara de directo.
+- Técnicos de sonido que sincronizan audio profesional vía Reaper + ASIO4ALL + ReaStream.
+- Usuarios con PCs de gama baja que necesitan una ruta optimizada y parámetros por defecto adecuados.
+
+## Aplicaciones prácticas
+- Transmisión de ensayos o conciertos con un móvil como cámara PTZ económica.
+- Streaming de tutoriales o lecciones donde se requiere baja latencia entre audio y vídeo.
+- Integración de la cámara del teléfono en escenarios de producción con OBS, con control de bitrate y afinidad CPU para evitar contención.
+
+---
+## Estructura del repositorio (actualizada)
 ```
-README.md                         # Esta guía (actualizada)
-LICENSE                            # MIT para scripts y docs
-.gitignore                         # bin/ y logs/ ignorados
-informe_optimizacion.md            # Análisis y pruebas detalladas
-scrcpy_bass_cam.bat                # Script principal (USB / cámara via HAL)
-scrcpy_bass_cam_fallback_tcp.bat   # Fallback: mirroring por TCP/RNDIS
-BASS_CAM_final.bat                 # (duplicado histórico — considerar eliminar)
-BASS_Cam_min.bat                   # (variantes, histórico)
-setup_repo.sh                      # Script de bootstrap (Git Bash)
-bin/                               # (no versionar) scrcpy.exe, adb.exe, DLLs
-logs/                              # generados en la ejecución
+scrcpy-bass-cam/
+├── README.md
+├── LICENSE
+├── .gitignore
+├── .gitattributes
+├── informe_optimizacion.md   # informe técnico y pruebas
+├── scrcpy_bass_cam.bat       # script principal (USB / cámara via HAL)
+├── scrcpy_bass_cam_fallback_tcp.bat # fallback: mirroring por TCP/RNDIS
+├── get_scrcpy_release.ps1    # PowerShell helper para descargar scrcpy
+├── get_scrcpy_release.sh     # Shell helper para descargar scrcpy (Git Bash)
+├── setup_repo.sh             # generador/ayudante (Git Bash)
+├── VERSION
+├── CHANGELOG.md
+└── archive/                  # archivos históricos y variantes (no parte del flujo principal)
+    ├── BASS_CAM_final.bat
+    └── BASS_Cam_min.bat
 ```
 
-Cómo encaja: El script principal es `scrcpy_bass_cam.bat`. `setup_repo.sh` es un ayudante para inicializar el repo en Git Bash y puede generar los `.bat` desde plantillas. Los binarios de scrcpy NO están versionados: se descargan en `bin/`.
+**Nota:** Los binarios de scrcpy (scrcpy.exe, adb.exe, DLLs, scrcpy-server) NO están versionados; colócalos en `bin/` o usa los helpers para descargarlos.
 
 ## Requisitos
-- Windows 10/11 (para el flujo principal con Window Capture / WGC en OBS).
-- scrcpy v3.0+ (probado con v4.1). Los binarios se descargan desde https://github.com/Genymobile/scrcpy/releases
-- Habilitar Depuración USB en Android. Un Moto G06 con Android 15 fue el dispositivo de referencia.
-- OBS Studio con Window Capture (WGC) y Reaper + ASIO4ALL si vas a enrutar audio profesionalmente.
+- Windows 10/11 para el flujo principal (Window Capture/WGC en OBS).
+- scrcpy v3.0+ (probado con v4.1). Descarga desde https://github.com/Genymobile/scrcpy/releases — usa los helpers incluidos.
+- Depuración USB habilitada en Android. El Moto G06 con Android 15 fue el dispositivo de referencia.
+- OBS Studio con soporte Window Capture (WGC). Para audio profesional: Reaper + ASIO4ALL o interfaz ASIO dedicada.
 
-## Instalación rápida (desde terminal)
-1) Clona el repo:
-
+## Instalación rápida
+1. Clona el repo:
 ```bash
 git clone https://github.com/blackmetalhans/scrcpy-streaming-for-toasters.git
 cd scrcpy-streaming-for-toasters
 ```
-
-2) Descarga los binarios oficiales de scrcpy y colócalos en `bin/` automáticamente (elige la opción que prefieras):
-
+2. Descargar scrcpy automáticamente:
 - En PowerShell (Windows):
-
 ```powershell
-# Ejecutar desde la raíz del repo
-pwsh .\\get_scrcpy_release.ps1
-# o con parámetros: pwsh .\get_scrcpy_release.ps1 -OutDir bin
+pwsh .\get_scrcpy_release.ps1 -OutDir bin
 ```
-
-- En Git Bash / Linux/macOS (requiere curl + python):
-
+- En Git Bash:
 ```bash
 ./get_scrcpy_release.sh
 ```
-
-3) Verifica que `bin/scrcpy.exe` y `bin/adb.exe` estén presentes (Windows) o que `scrcpy` esté en PATH en Linux.
-
-4) Ejecuta:
-
+3. Ejecuta desde la raíz del repo (Windows):
 ```powershell
-# Windows (desde Git Bash o CMD):
 ./scrcpy_bass_cam.bat
 ```
 
-El script lanzará scrcpy apuntando a la cámara frontal (configurable al inicio del .bat). Cuando la ventana `BASS_CAM_RAW` esté activa, añádela a OBS como Window Capture → Windows Graphics Capture (WGC).
+## Uso y ajustes para PCs de baja gama
+- Valores por defecto: el script usa resoluciones y bitrate moderados (720x480, 1500K) y aplica afinidad de CPU para reservar cores al encoder. Estos ajustes priorizan estabilidad y baja carga en CPUs con pocos núcleos.
+- Si la CPU se saturase: reduce `CAM_FPS` a 15 o `CAM_SIZE` a 480x270 y disminuye `VIDEO_BITRATE` a 800K.
+- Evita ejecutar procesos pesados en paralelo (navegador, DAW con muchos plugins) durante streaming.
+- Usa `--render-driver=direct3d` (valor por defecto) para menor uso de CPU en Windows.
 
-## Descargar scrcpy desde terminal (qué hace el helper)
-He añadido dos utilidades:
-- `get_scrcpy_release.ps1` — PowerShell: consulta la API de GitHub, descarga el release de scrcpy (asset Windows cuando exista) y lo extrae en `bin/`.
-- `get_scrcpy_release.sh` — Shell: hace lo mismo usando curl + python.
-
-Ambas scripts intentan resolver automáticamente el asset más apropiado y descomprimirlo en `bin/` para que `scrcpy_bass_cam.bat` funcione sin cambios.
-
-## Configuración rápida (variables importantes)
-Abre `scrcpy_bass_cam.bat` y revisa al inicio:
-- `ADB_SERIAL` — serial del dispositivo o IP:PORT para TCP/IP
-- `CAMERA_ID`, `CAM_SIZE`, `CAM_FPS` — parámetros de cámara
-- `VIDEO_BITRATE`, `VIDEO_CODEC` — calidad de stream
-- `CPU_AFFINITY_HEX` — máscara de afinidad de CPU
-
-No es necesario editar el cuerpo del script: las variables principales están centralizadas.
-
-## Sugerencias para limpieza del repo antes del primer release
-- Eliminar o mover a `archive/` los archivos históricos/duplicados: `BASS_CAM_final.bat`, `BASS_Cam_min.bat` si no son necesarios.
-- Asegurarse de que `bin/` no esté versionado y que `.gitignore` lo excluya (ya está configurado).
-- Establecer `VERSION` (archivo añadido) y actualizar `CHANGELOG.md`.
-
-## Preparar el primer release (manual)
-1. Actualiza `VERSION` con el número (por ejemplo `0.1.0`).
-2. Commit y push: `git add VERSION CHANGELOG.md README.md` → `git commit -m "chore: prepare v0.1.0"` → `git push`.
-3. Crear la release en GitHub (UI o CLI): `gh release create v0.1.0 --title "v0.1.0" --notes-file CHANGELOG.md`.
-
-Si quieres que yo cree los archivos de release (tag o changelog) automáticamente, puedo hacerlo si me das permiso para ejecutar operaciones adicionales o me indicas cómo quieres el versionado.
+## Configuración destacada
+- `ADB_SERIAL`: por defecto el script intenta autodetectar el dispositivo ADB conectado; si tienes varios dispositivos, establece manualmente `ADB_SERIAL` en la parte inicial del .bat.
+- `CAM_SIZE`, `CAM_FPS`, `VIDEO_BITRATE`, `CPU_AFFINITY_HEX`: variables centralizadas al inicio del script.
 
 ## Troubleshooting rápido
-- Si `adb` no lista el dispositivo: revisa el diálogo de autenticación RSA en el teléfono y usa un cable USB que soporte datos.
-- Si la ventana no aparece en OBS: confirma que `BASS_CAM_RAW` está abierta y que usas Window Capture → WGC.
+- adb devices muestra `unauthorized`: acepta el diálogo RSA en el teléfono.
+- La ventana `BASS_CAM_RAW` no aparece en OBS: abre el picker y selecciona Window Capture → Windows Graphics Capture.
+- Si experimentas jitter en sesiones largas: baja `CAM_FPS` y `VIDEO_BITRATE`, monitoriza con `scrcpy --print-fps`.
+
+## Cómo contribuir
+- Añade issues para bugs o mejoras. Pull requests bienvenidos; usa CRLF en .bat si editas en Windows.
 
 ---
-
-Cambios realizados en el repo por mí:
-- README.md actualizado para flujo de instalación y uso desde terminal.
-- Añadidos: `get_scrcpy_release.ps1`, `get_scrcpy_release.sh`, `VERSION`, `CHANGELOG.md`.
-
-Próximo paso: sugerirme si quieres que archive o elimine archivos concretos (`BASS_CAM_final.bat`, `BASS_Cam_min.bat`) y si quieres que cree la release en GitHub (necesitaré autorización o usarás `gh` localmente).
+## Recursos
+- Informe técnico: `informe_optimizacion.md` (pruebas, mediciones y recomendaciones avanzadas)

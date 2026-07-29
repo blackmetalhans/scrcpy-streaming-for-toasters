@@ -1,12 +1,8 @@
 # Binarios y libs de scrcpy (se descargan del release oficial, no se versionan)
+bin/
 *.exe
 *.dll
 scrcpy-server
-scrcpy-server.zip
-scrcpy-noconsole.vbs
-scrcpy.png
-disconnected.png
-LICENSE.txt
 
 # Logs generados en cada corrida
 logs/
@@ -16,5 +12,12 @@ logs/
 *.tmp
 Thumbs.db
 desktop.ini
-Nuevo documento de texto.txt
-BASS_CAM.bat.bak
+
+# Release assets
+*.zip
+*.tar.gz
+*.tgz
+
+# Editor temp files
+*.swp
+*~
