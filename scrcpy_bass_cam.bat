@@ -130,7 +130,6 @@ start "BASS_CAM_DECODER" /affinity %CPU_AFFINITY_HEX% /high "%SCRCPY_EXE%" ^
     --video-codec=%VIDEO_CODEC% ^
     --video-buffer=%VIDEO_BUFFER% ^
     --render-driver=%RENDER_DRIVER% ^
-    --stay-awake ^
     --audio-source=mic ^
     --audio-buffer=50 ^
     --no-control ^
