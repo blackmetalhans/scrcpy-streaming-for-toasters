@@ -1,14 +1,11 @@
 @echo off
 chcp 65001 >nul
 setlocal EnableExtensions EnableDelayedExpansion
-
 pushd "%~dp0" || exit /b 1
 
 :: ============================================================================
-:: scrcpy_bass_cam.bat — CONFIGURACION COMPATIBLE AUDIO OBS (480p @ 30fps)
-:: Pipeline: Moto G06 (Cámara frontal HAL + Micrófono) -> scrcpy -> OBS
-:: Audio: Se mantiene reproducción activa para abrir la sesión WASAPI en Windows,
-::        permitiendo que OBS la capture vía "Captura de audio de aplicación".
+:: scrcpy_bass_cam.bat
+:: Pipeline: Android (cámara frontal HAL) -> scrcpy -> OBS
 :: ============================================================================
 
 set "SCRCPY_EXE=%~dp0scrcpy.exe"
@@ -18,16 +15,13 @@ set "ADB_EXE=%~dp0adb.exe"
 if not exist "%ADB_EXE%" set "ADB_EXE=adb"
 
 set "CAM_FACING=front"
-set "CAM_SIZE=720x480"
-set "CAM_FPS=30"
-
+set "CAM_SIZE=854x480"
+set "CAM_FPS=25"
 set "VIDEO_BITRATE=1500K"
 set "VIDEO_CODEC=h264"
-set "AUDIO_SOURCE=mic"
 set "RENDER_DRIVER=direct3d"
 set "WINDOW_TITLE=BASS_CAM_RAW"
 set "VIDEO_BUFFER=0"
-
 set "MAX_RETRIES=5"
 set "RETRY_WAIT_SECONDS=3"
 set "CPU_AFFINITY_HEX=3"
@@ -41,7 +35,6 @@ set "LOG_FILE=%~dp0logs\bass_cam_%D%_%T%.log"
 
 call :log "==================== INICIO scrcpy_bass_cam.bat ===================="
 
-:: --- VALIDACION DE BINARIOS ---
 if exist "%SCRCPY_EXE%" (
     call :log "[OK] scrcpy.exe encontrado: %SCRCPY_EXE%"
 ) else (
@@ -50,13 +43,11 @@ if exist "%SCRCPY_EXE%" (
     exit /b 2
 )
 
-:: --- LIMPIEZA DE PROCESOS HUERFANOS ---
 call :log "[LIMPIEZA] Purgando procesos previos de scrcpy y adb..."
 taskkill /F /IM scrcpy.exe /T >nul 2>&1
 taskkill /F /IM adb.exe /T >nul 2>&1
 "%ADB_EXE%" kill-server >nul 2>&1
 
-:: --- INICIO ADB Y DETECCION DE DISPOSITIVO ---
 call :log "[ADB] Iniciando adb start-server..."
 "%ADB_EXE%" start-server >nul 2>&1
 if errorlevel 1 (
@@ -72,7 +63,6 @@ set "ADB_SERIAL="
 :retry_adb_devices
 set /a RETRY_COUNT+=1
 call :log "[ADB] Verificando dispositivo (intento !RETRY_COUNT! de %MAX_RETRIES%)..."
-
 set "ADB_OUT=%TEMP%\bass_cam_adb_out.txt"
 "%ADB_EXE%" devices > "%ADB_OUT%" 2>&1
 
@@ -128,22 +118,27 @@ if "!DEVICE_READY!"=="0" (
 )
 
 :: --- LANZAMIENTO DE SCRCPY ---
-call :log "[SCRCPY] Lanzando captura de cámara frontal %CAM_SIZE% @ %CAM_FPS%fps (audio=%AUDIO_SOURCE%)..."
+call :log "[SCRCPY] Lanzando captura de cámara frontal %CAM_SIZE% @ %CAM_FPS%fps (serial=!ADB_SERIAL!)..."
 
-:: NOTA: Se remueve --no-audio-playback para permitir que Windows abra la sesión de audio WASAPI
 start "BASS_CAM_DECODER" /affinity %CPU_AFFINITY_HEX% /high "%SCRCPY_EXE%" ^
-    --serial=%ADB_SERIAL% ^
+    --serial=!ADB_SERIAL! ^
     --video-source=camera ^
     --camera-facing=%CAM_FACING% ^
     --camera-size=%CAM_SIZE% ^
     --camera-fps=%CAM_FPS% ^
-    --audio-source=%AUDIO_SOURCE% ^
     --video-bit-rate=%VIDEO_BITRATE% ^
     --video-codec=%VIDEO_CODEC% ^
     --video-buffer=%VIDEO_BUFFER% ^
     --render-driver=%RENDER_DRIVER% ^
+    --stay-awake ^
+    --audio-source=mic ^
+    --audio-buffer=50 ^
     --no-control ^
-    --window-title="%WINDOW_TITLE%"
+    --window-title="%WINDOW_TITLE%" ^
+    --window-borderless
+
+:: NOTA: Cuando instales VB-Audio Cable, añade la siguiente línea arriba:
+::  --audio-device="CABLE Input (VB-Audio Virtual Cable)" ^
 
 if errorlevel 1 (
     call :log "[ERROR] Fallo al lanzar scrcpy."
@@ -158,7 +153,6 @@ pause >nul
 :: --- LIMPIEZA ---
 call :log "[CLEANUP] Cerrando scrcpy..."
 taskkill /F /IM scrcpy.exe /T >nul 2>&1
-
 call :log "==================== FIN scrcpy_bass_cam.bat (OK) ===================="
 popd
 exit /b 0
