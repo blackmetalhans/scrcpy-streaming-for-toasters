@@ -5,9 +5,10 @@ setlocal EnableExtensions EnableDelayedExpansion
 pushd "%~dp0" || exit /b 1
 
 :: ============================================================================
-:: scrcpy_bass_cam.bat — CONFIGURACION OPTIMIZADA (480p @ 30fps)
+:: scrcpy_bass_cam.bat — CONFIGURACION COMPATIBLE AUDIO OBS (480p @ 30fps)
 :: Pipeline: Moto G06 (Cámara frontal HAL + Micrófono) -> scrcpy -> OBS
-:: Audio: Captura de micrófono del teléfono SIN reproducción en parlantes PC (--no-audio-playback)
+:: Audio: Se mantiene reproducción activa para abrir la sesión WASAPI en Windows,
+::        permitiendo que OBS la capture vía "Captura de audio de aplicación".
 :: ============================================================================
 
 set "SCRCPY_EXE=%~dp0scrcpy.exe"
@@ -127,8 +128,9 @@ if "!DEVICE_READY!"=="0" (
 )
 
 :: --- LANZAMIENTO DE SCRCPY ---
-call :log "[SCRCPY] Lanzando captura de cámara frontal %CAM_SIZE% @ %CAM_FPS%fps (audio=%AUDIO_SOURCE%, sin playback local)..."
+call :log "[SCRCPY] Lanzando captura de cámara frontal %CAM_SIZE% @ %CAM_FPS%fps (audio=%AUDIO_SOURCE%)..."
 
+:: NOTA: Se remueve --no-audio-playback para permitir que Windows abra la sesión de audio WASAPI
 start "BASS_CAM_DECODER" /affinity %CPU_AFFINITY_HEX% /high "%SCRCPY_EXE%" ^
     --serial=%ADB_SERIAL% ^
     --video-source=camera ^
@@ -136,14 +138,12 @@ start "BASS_CAM_DECODER" /affinity %CPU_AFFINITY_HEX% /high "%SCRCPY_EXE%" ^
     --camera-size=%CAM_SIZE% ^
     --camera-fps=%CAM_FPS% ^
     --audio-source=%AUDIO_SOURCE% ^
-    --no-audio-playback ^
     --video-bit-rate=%VIDEO_BITRATE% ^
     --video-codec=%VIDEO_CODEC% ^
     --video-buffer=%VIDEO_BUFFER% ^
     --render-driver=%RENDER_DRIVER% ^
     --no-control ^
-    --window-title="%WINDOW_TITLE%" ^
-    --window-borderless
+    --window-title="%WINDOW_TITLE%"
 
 if errorlevel 1 (
     call :log "[ERROR] Fallo al lanzar scrcpy."
